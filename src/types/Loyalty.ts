@@ -1,0 +1,1 @@
+export type LoyaltyTier = "Bronze" | "Silver" | "Gold" | "None";
