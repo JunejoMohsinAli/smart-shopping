@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { Product, Variant } from "../types/Product";
-import type { CartItem } from "../types/CartItem";
 import { getDynamicPrice, isPeakHour } from "../utils/pricing";
 
 interface ProductCardProps {

@@ -12,8 +12,6 @@ import {
 } from "lucide-react";
 import type { CartItem, LoyaltyTier } from "../types";
 import {
-  getVolumeDiscount,
-  getLoyaltyDiscountWithMessage,
   applyCategoryPromotion,
   calculateItemFinalPrice,
 } from "../utils/pricing";
@@ -196,14 +194,13 @@ const CartSidebar = ({
 }: CartSidebarProps) => {
   // Enhanced calculations with new pricing system
   const {
-    total,
     promotionDiscount,
     grandTotal,
     totalItemsInCart,
     totalSavings,
     affectedItem,
   } = useMemo(() => {
-    let total = 0;
+    let subtotal = 0;
     let totalSavings = 0;
 
     // Calculate total using new pricing system
@@ -213,20 +210,19 @@ const CartSidebar = ({
         item.quantity,
         userLoyaltyTier
       );
-      total += finalPrice * item.quantity;
+      subtotal += finalPrice * item.quantity;
       totalSavings += savings * item.quantity;
     });
 
     const { promotionDiscount, affectedItem } =
       applyCategoryPromotion(cartItems);
-    const grandTotal = total - promotionDiscount;
+    const grandTotal = subtotal - promotionDiscount;
     const totalItemsInCart = cartItems.reduce(
       (sum, item) => sum + item.quantity,
       0
     );
 
     return {
-      total,
       promotionDiscount,
       grandTotal,
       totalItemsInCart,
