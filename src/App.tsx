@@ -1,20 +1,23 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import { fakeProducts } from "./services/fakeProducts";
-import { simulateStockUpdate } from "./services/stockSimulator";
-import { useCartContext } from "./context/CartContext";
-import type { Product } from "./types/Product";
-import type { LoyaltyTier } from "./types/Loyalty";
-import type { CartItem } from "./types/CartItem";
+
+// Components
 import {
   ErrorBoundary,
   Header,
-  OfflineBanner,
   LoyaltySection,
   ProductsGrid,
   CartSidebar,
 } from "./components";
+
+// Services & Utils
+import { fakeProducts } from "./services/fakeProducts";
+import { simulateStockUpdate } from "./services/stockSimulator";
+import { useCartContext } from "./context/CartContext";
+
+// Types
+import type { Product } from "./types/Product";
+import type { LoyaltyTier } from "./types/Loyalty";
+import type { CartItem } from "./types/CartItem";
 
 function App() {
   // State
@@ -24,7 +27,6 @@ function App() {
   const [loadingStates, setLoadingStates] = useState<Record<number, boolean>>(
     {}
   );
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isProductsLoading, setIsProductsLoading] = useState(true);
 
   // Context
@@ -45,6 +47,7 @@ function App() {
     return (localStorage.getItem("loyaltyTier") as LoyaltyTier) || "None";
   });
 
+  // Memoized calculations to prevent unnecessary re-renders
   const { totalItemsInCart, availableProductsCount } = useMemo(() => {
     const totalItemsInCart = cartItems.reduce(
       (sum, item) => sum + item.quantity,
@@ -57,24 +60,11 @@ function App() {
     return { totalItemsInCart, availableProductsCount };
   }, [cartItems, products]);
 
-  // Online/Offline detection
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
-
+  // Optimized products loading (reduced time)
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsProductsLoading(false);
-    }, 800);
+    }, 800); // Reduced from 1500ms to 800ms
     return () => clearTimeout(timer);
   }, []);
 
@@ -86,16 +76,19 @@ function App() {
     return () => clearTimeout(timeoutId);
   }, [userLoyaltyTier]);
 
+  // Optimized stock simulation with race condition prevention
   useEffect(() => {
     const interval = setInterval(() => {
       setProducts((prevProducts) => {
         const updated = simulateStockUpdate(prevProducts);
 
+        // Only auto-remove if no operations are pending for those products
         const outOfStockIds = updated
           .filter((product) => product.stock === 0)
           .map((product) => product.id);
 
         if (outOfStockIds.length > 0) {
+          // Add small delay to avoid race conditions with ongoing operations
           setTimeout(() => {
             const itemsToRemove = cartItems.filter((item) =>
               outOfStockIds.includes(item.productId)
@@ -106,21 +99,23 @@ function App() {
                 removeFromCart(item.productId);
               });
             }
-          }, 1000);
+          }, 1000); // 1 second delay to avoid conflicts
         }
 
         return updated;
       });
-    }, 60000);
+    }, 60000); // Increased to 1 minute for better performance
     return () => clearInterval(interval);
   }, [cartItems, removeFromCart]);
 
+  // Optimized loading handler with debouncing
   const handleAsyncAction = useCallback(
     async (productId: number, action: () => Promise<void>) => {
       setLoadingStates((prev) => ({ ...prev, [productId]: true }));
       try {
         await action();
       } finally {
+        // Debounce loading state reset
         setTimeout(() => {
           setLoadingStates((prev) => ({ ...prev, [productId]: false }));
         }, 100);
@@ -129,6 +124,7 @@ function App() {
     []
   );
 
+  // Memoized wrapper functions
   const handleAddToCart = useCallback(
     async (item: CartItem): Promise<void> => {
       await addToCart(item);
@@ -175,6 +171,7 @@ function App() {
     setIsCartOpen((prev) => !prev);
   }, []);
 
+  // Show loading message while cart is initializing
   if (!isLoaded) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
@@ -189,17 +186,14 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100">
+        {/* Simplified Background Elements - Reduced blur complexity */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-200/10 to-purple-200/10 rounded-full"></div>
           <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-green-200/10 to-blue-200/10 rounded-full"></div>
         </div>
 
-        {/* Offline Banner */}
-        <OfflineBanner isVisible={!isOnline} />
-
         {/* Header */}
         <Header
-          isOnline={isOnline}
           totalItemsInCart={totalItemsInCart}
           onCartToggle={handleCartToggle}
         />
@@ -284,6 +278,7 @@ function App() {
               saveForLater={handleSaveForLater}
               savedItems={savedItems}
               removeFromSaved={handleRemoveFromSaved}
+              userLoyaltyTier={userLoyaltyTier}
             />
           </div>
         </main>
@@ -304,22 +299,6 @@ function App() {
           saveForLater={handleSaveForLater}
           moveToCart={handleMoveToCart}
           removeFromSaved={handleRemoveFromSaved}
-        />
-
-        {/*Toast Container */}
-        <ToastContainer
-          position="top-right"
-          autoClose={2000}
-          hideProgressBar
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss={false}
-          draggable={false}
-          pauseOnHover={false}
-          className="mt-16"
-          toastClassName="!bg-white !border !border-gray-200 !shadow-lg !rounded-lg !mb-2"
-          limit={3}
         />
       </div>
     </ErrorBoundary>

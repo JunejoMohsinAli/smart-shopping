@@ -1,5 +1,6 @@
 import type { Product } from "../types/Product";
 import type { CartItem } from "../types/CartItem";
+import type { LoyaltyTier } from "../types/Loyalty";
 import ProductCard from "./ProductCard";
 
 interface ProductsGridProps {
@@ -18,6 +19,7 @@ interface ProductsGridProps {
   saveForLater: (item: CartItem) => Promise<void>;
   savedItems: CartItem[];
   removeFromSaved: (productId: number) => Promise<void>;
+  userLoyaltyTier: LoyaltyTier;
 }
 
 const ProductsGrid = ({
@@ -30,13 +32,15 @@ const ProductsGrid = ({
   saveForLater,
   savedItems,
   removeFromSaved,
+  userLoyaltyTier,
 }: ProductsGridProps) => {
-  const handleAddToCart = async (product: Product) => {
+  // Fix: Direct calls with quantity parameter
+  const handleAddToCart = async (product: Product, quantity: number = 1) => {
     const cartItem: CartItem = {
       productId: product.id,
       name: product.name,
       basePrice: product.basePrice,
-      quantity: 1,
+      quantity: quantity, // Use the actual selected quantity
       image: product.image,
       category: product.category,
     };
@@ -44,12 +48,12 @@ const ProductsGrid = ({
     await onAddToCart(product.id, async () => await addToCart(cartItem));
   };
 
-  const handleSaveForLater = async (product: Product) => {
+  const handleSaveForLater = async (product: Product, quantity: number = 1) => {
     const cartItem: CartItem = {
       productId: product.id,
       name: product.name,
       basePrice: product.basePrice,
-      quantity: 1,
+      quantity: quantity, // Use the actual selected quantity
       image: product.image,
       category: product.category,
     };
@@ -77,7 +81,8 @@ const ProductsGrid = ({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
       {isLoading
-        ? Array.from({ length: 6 }).map((_, index) => (
+        ? // Show skeleton loaders while loading
+          Array.from({ length: 6 }).map((_, index) => (
             <div
               key={index}
               className="bg-white rounded-lg shadow-sm border animate-pulse"
@@ -114,8 +119,11 @@ const ProductsGrid = ({
                 product={product}
                 isLoading={loadingStates[product.id] || false}
                 isProductSaved={isProductSaved}
-                onAddToCart={() => handleAddToCart(product)}
-                onSaveForLater={() => handleSaveForLater(product)}
+                userLoyaltyTier={userLoyaltyTier}
+                onAddToCart={(quantity) => handleAddToCart(product, quantity)}
+                onSaveForLater={(quantity) =>
+                  handleSaveForLater(product, quantity)
+                }
               />
             );
           })}

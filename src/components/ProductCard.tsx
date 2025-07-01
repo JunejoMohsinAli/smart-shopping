@@ -9,20 +9,27 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { Product, Variant } from "../types/Product";
-import { getDynamicPrice, isPeakHour } from "../utils/pricing";
+import type { LoyaltyTier } from "../types/Loyalty";
+import {
+  getDynamicPrice,
+  isPeakHour,
+  getLoyaltyDiscountWithMessage,
+} from "../utils/pricing";
 
 interface ProductCardProps {
   product: Product;
   isLoading: boolean;
   isProductSaved: boolean;
-  onAddToCart: () => Promise<void>;
-  onSaveForLater: () => Promise<void>;
+  userLoyaltyTier: LoyaltyTier;
+  onAddToCart: (quantity: number) => Promise<void>;
+  onSaveForLater: (quantity: number) => Promise<void>;
 }
 
 const ProductCard = ({
   product,
   isLoading,
   isProductSaved,
+  userLoyaltyTier,
   onAddToCart,
   onSaveForLater,
 }: ProductCardProps) => {
@@ -61,8 +68,15 @@ const ProductCard = ({
   };
 
   const handleAddToCart = async () => {
-    await onAddToCart();
+    // Pass the selected quantity to the parent
+    await onAddToCart(selectedQuantity);
+    // Reset quantity after adding
     setSelectedQuantity(1);
+  };
+
+  const handleSaveForLater = async () => {
+    // Pass the selected quantity to the parent
+    await onSaveForLater(selectedQuantity);
   };
 
   const stockStatus = getStockStatus();
@@ -70,14 +84,20 @@ const ProductCard = ({
   const originalPrice = product.basePrice;
   const hasDiscount = currentPrice !== originalPrice;
 
+  // Calculate loyalty tier pricing
+  const { price: loyaltyPrice, message: loyaltyMessage } =
+    getLoyaltyDiscountWithMessage(userLoyaltyTier, currentPrice);
+  const hasLoyaltyDiscount =
+    loyaltyPrice < currentPrice && userLoyaltyTier !== "None";
+
   return (
-    <div className="group bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 hover:shadow-xl transition-all duration-300 overflow-hidden">
-      {/* Image Container */}
+    <div className="group bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 hover:shadow-xl transition-shadow duration-300 overflow-hidden">
+      {/* Image Container - Removed scale animation for performance */}
       <div className="relative overflow-hidden">
         <img
           src={product.image}
           alt={product.name}
-          className="w-full h-48 sm:h-56 object-cover transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-48 sm:h-56 object-cover"
           loading="lazy"
         />
 
@@ -121,20 +141,39 @@ const ProductCard = ({
           {product.name}
         </h3>
 
-        {/* Price Section */}
+        {/* Price Section - Enhanced with Loyalty Tier Pricing */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-gray-900">
-                Rs. {currentPrice.toLocaleString()}
-              </span>
-              {hasDiscount && (
-                <span className="text-sm text-gray-500 line-through">
-                  Rs. {originalPrice.toLocaleString()}
-                </span>
+            <div className="space-y-1">
+              {/* Show loyalty discounted price if applicable */}
+              {hasLoyaltyDiscount ? (
+                <>
+                  <div className="text-2xl font-bold text-blue-600">
+                    Rs. {loyaltyPrice.toFixed(0)}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg text-gray-500 line-through">
+                      Rs. {currentPrice.toLocaleString()}
+                    </span>
+                    <span className="bg-green-100 text-green-600 text-xs px-2 py-1 rounded-full font-medium">
+                      {loyaltyMessage}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-gray-900">
+                    Rs. {currentPrice.toLocaleString()}
+                  </div>
+                  {hasDiscount && (
+                    <span className="text-sm text-gray-500 line-through">
+                      Rs. {originalPrice.toLocaleString()}
+                    </span>
+                  )}
+                </>
               )}
             </div>
-            {hasDiscount && (
+            {hasDiscount && !hasLoyaltyDiscount && (
               <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full font-medium">
                 +10%
               </span>
@@ -207,7 +246,7 @@ const ProductCard = ({
           <button
             disabled={product.stock === 0 || isLoading}
             onClick={handleAddToCart}
-            className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+            className={`flex-1 py-3 px-4 rounded-xl font-medium transition-colors duration-200 flex items-center justify-center gap-2 ${
               product.stock === 0 || isLoading
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                 : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl"
@@ -232,8 +271,8 @@ const ProductCard = ({
           {/* Save for Later Button - Now with Star and Toggle */}
           <button
             disabled={isLoading}
-            onClick={onSaveForLater}
-            className={`p-3 rounded-xl transition-all duration-200 ${
+            onClick={handleSaveForLater}
+            className={`p-3 rounded-xl transition-colors duration-200 ${
               isLoading
                 ? "text-gray-400 cursor-not-allowed bg-gray-100"
                 : isProductSaved

@@ -1,12 +1,11 @@
-import { ShoppingCart, Wifi, WifiOff, Sparkles } from "lucide-react";
+import { ShoppingCart, Sparkles } from "lucide-react";
 
 interface HeaderProps {
-  isOnline: boolean;
   totalItemsInCart: number;
   onCartToggle: () => void;
 }
 
-const Header = ({ isOnline, totalItemsInCart, onCartToggle }: HeaderProps) => {
+const Header = ({ totalItemsInCart, onCartToggle }: HeaderProps) => {
   return (
     <header className="bg-white/95 backdrop-blur-md shadow-lg border-b border-white/20 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 py-4">
@@ -25,21 +24,6 @@ const Header = ({ isOnline, totalItemsInCart, onCartToggle }: HeaderProps) => {
                   Intelligent E-commerce
                 </p>
               </div>
-            </div>
-
-            {/* Connection Indicator */}
-            <div className="flex items-center">
-              {isOnline ? (
-                <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                  <Wifi className="w-4 h-4" />
-                  <span className="hidden sm:inline">Online</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
-                  <WifiOff className="w-4 h-4" />
-                  <span className="hidden sm:inline">Offline</span>
-                </div>
-              )}
             </div>
           </div>
 
