@@ -35,8 +35,6 @@ interface CartSidebarProps {
   moveToCart: (productId: number) => Promise<void>;
   removeFromSaved: (productId: number) => Promise<void>;
 }
-
-// Memoized cart item component with quantity controls
 const CartItemComponent = React.memo(
   ({
     item,
@@ -53,7 +51,6 @@ const CartItemComponent = React.memo(
     onSaveForLater: () => void;
     onUpdateQuantity: (quantity: number) => void;
   }) => {
-    // Use the new pricing calculation function
     const { finalPrice, appliedDiscounts, savings } = useMemo(
       () =>
         calculateItemFinalPrice(item.basePrice, item.quantity, userLoyaltyTier),
@@ -192,7 +189,6 @@ const CartSidebar = ({
   moveToCart,
   removeFromSaved,
 }: CartSidebarProps) => {
-  // Enhanced calculations with new pricing system
   const {
     promotionDiscount,
     grandTotal,
@@ -203,7 +199,6 @@ const CartSidebar = ({
     let subtotal = 0;
     let totalSavings = 0;
 
-    // Calculate total using new pricing system
     cartItems.forEach((item) => {
       const { finalPrice, savings } = calculateItemFinalPrice(
         item.basePrice,
@@ -231,7 +226,6 @@ const CartSidebar = ({
     };
   }, [cartItems, userLoyaltyTier]);
 
-  // Don't render anything if not open (performance optimization)
   if (!isOpen) {
     return null;
   }
@@ -339,8 +333,7 @@ const CartSidebar = ({
                 ))}
               </div>
             )
-          ) : // Saved items content
-          savedItems.length === 0 ? (
+          ) : savedItems.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-20 h-20 bg-gradient-to-br from-pink-100 to-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Heart size={32} className="text-pink-500" />

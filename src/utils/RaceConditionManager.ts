@@ -1,4 +1,3 @@
-// Advanced Race Condition Manager
 export interface Operation {
   id: string;
   type: 'ADD_TO_CART' | 'REMOVE_FROM_CART' | 'SAVE_FOR_LATER' | 'MOVE_TO_CART' | 'REMOVE_FROM_SAVED' | 'UPDATE_QUANTITY';
@@ -43,28 +42,24 @@ export class RaceConditionManager {
       retryCount: 0
     };
 
-    // Check for conflicting operations
     this.resolveConflicts(fullOperation);
     
     this.operationQueue.push(fullOperation);
     return fullOperation.id;
   }
 
-  // Resolve conflicting operations
   private resolveConflicts(newOperation: Operation): void {
     const conflictingOps = this.operationQueue.filter(op => 
       op.productId === newOperation.productId && 
       this.areOperationsConflicting(op.type, newOperation.type)
     );
 
-    // Remove older conflicting operations
     conflictingOps.forEach(op => {
       this.operationQueue = this.operationQueue.filter(queuedOp => queuedOp.id !== op.id);
       console.log(`Resolved conflict: Removed ${op.type} for product ${op.productId}`);
     });
   }
 
-  // Check if two operations conflict
   private areOperationsConflicting(op1: Operation['type'], op2: Operation['type']): boolean {
     const conflicts: Record<Operation['type'], Operation['type'][]> = {
       'ADD_TO_CART': ['REMOVE_FROM_CART'],
@@ -78,23 +73,20 @@ export class RaceConditionManager {
     return conflicts[op1]?.includes(op2) || false;
   }
 
-  // Process next operation in queue
   async processNextOperation(
     executor: (operation: Operation) => Promise<void>
   ): Promise<boolean> {
-    // Find next processable operation (not locked)
     const operationIndex = this.operationQueue.findIndex(
       op => !this.isProductLocked(op.productId)
     );
 
     if (operationIndex === -1) {
-      return false; // No processable operations
+      return false; 
     }
 
     const operation = this.operationQueue[operationIndex];
     this.operationQueue.splice(operationIndex, 1);
 
-    // Lock the product
     this.lockProduct(operation.productId);
 
     try {
@@ -103,11 +95,9 @@ export class RaceConditionManager {
     } catch (error) {
       console.error(`❌ Operation failed: ${operation.type} for product ${operation.productId}`, error);
       
-      // Retry logic
       if ((operation.retryCount || 0) < this.maxRetries) {
         operation.retryCount = (operation.retryCount || 0) + 1;
         
-        // Re-add to queue with delay
         setTimeout(() => {
           this.operationQueue.unshift(operation);
           console.log(`🔄 Retrying operation: ${operation.type} (attempt ${operation.retryCount})`);
@@ -116,7 +106,6 @@ export class RaceConditionManager {
         console.log(`💥 Operation failed permanently: ${operation.type} for product ${operation.productId}`);
       }
     } finally {
-      // Always unlock the product
       this.unlockProduct(operation.productId);
     }
 
@@ -130,7 +119,6 @@ export class RaceConditionManager {
     while (this.operationQueue.length > 0) {
       const processed = await this.processNextOperation(executor);
       if (!processed) {
-        // Wait a bit before trying again if no operations could be processed
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
@@ -152,13 +140,11 @@ export class RaceConditionManager {
     };
   }
 
-  // Clear all operations for a specific product
   clearProductOperations(productId: number): void {
     this.operationQueue = this.operationQueue.filter(op => op.productId !== productId);
     this.unlockProduct(productId);
   }
 
-  // Emergency clear all operations
   clearAllOperations(): void {
     this.operationQueue = [];
     this.processingLocks.clear();

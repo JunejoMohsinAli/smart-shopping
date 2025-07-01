@@ -61,9 +61,7 @@ const ProductCard = ({
   };
 
   const handleAddToCart = async () => {
-    // Create cart item with selected quantity
     await onAddToCart();
-    // Reset quantity after adding
     setSelectedQuantity(1);
   };
 

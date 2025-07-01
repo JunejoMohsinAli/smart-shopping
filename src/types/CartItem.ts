@@ -5,5 +5,5 @@ export interface CartItem {
   quantity: number;
   image: string;
   category: string;
-  tempId?: string; // For optimistic updates
+  tempId?: string;
 }

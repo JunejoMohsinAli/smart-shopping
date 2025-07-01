@@ -18,10 +18,8 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     {}
   );
 
-  // Race condition manager - only create once
   const raceManager = useRef(new RaceConditionManager());
 
-  // Safe localStorage operations with error handling
   const safeLocalStorage = useMemo(
     () => ({
       getItem: (key: string): string | null => {
@@ -46,13 +44,11 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     []
   );
 
-  // Rate-limited toast notifications to prevent spam
   const showToast = useCallback(
     (message: string, type: "success" | "error" | "warning" = "success") => {
       const now = Date.now();
       const lastTime = lastToastTime[message] || 0;
 
-      // Prevent spam - only show same message once per 2 seconds
       if (now - lastTime > 2000) {
         setLastToastTime((prev) => ({ ...prev, [message]: now }));
         toast[type](message);
@@ -61,9 +57,8 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     [lastToastTime]
   );
 
-  // Improved API simulation - reduce failure rate to 3%
   const simulateApiCall = useCallback(async () => {
-    const fail = Math.random() < 0.03; // Reduced from 10% to 3%
+    const fail = Math.random() < 0.03;
     await new Promise((res) => setTimeout(res, Math.random() * 400 + 100));
     if (fail) {
       const error = new Error("Network request failed");
@@ -72,7 +67,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  // Memoized state updaters
   const updateCartItemsSafely = useCallback(
     (updater: (prev: CartItem[]) => CartItem[]) => {
       setCartItems(updater);
@@ -87,7 +81,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     []
   );
 
-  // Optimized operation executor with memoization
   const executeOperation = useCallback(
     async (operation: Operation): Promise<void> => {
       try {
@@ -129,7 +122,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
               );
               return exists
                 ? prev
-                : [...prev, { ...itemToSave, quantity: itemToSave.quantity }]; // Preserve quantity
+                : [...prev, { ...itemToSave, quantity: itemToSave.quantity }];
             });
             break;
 
@@ -148,7 +141,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
                 return exists
                   ? prev.map((i) =>
                       i.productId === operation.productId
-                        ? { ...i, quantity: i.quantity + savedItem.quantity } // Preserve quantity
+                        ? { ...i, quantity: i.quantity + savedItem.quantity }
                         : i
                     )
                   : [...prev, savedItem];
@@ -180,7 +173,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     [simulateApiCall, updateCartItemsSafely, updateSavedItemsSafely, savedItems]
   );
 
-  // Queue processing with better error handling
   useEffect(() => {
     let isProcessing = false;
 
@@ -200,8 +192,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     const interval = setInterval(processQueue, 300);
     return () => clearInterval(interval);
   }, [executeOperation]);
-
-  // Improved data loading with error handling
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -231,7 +221,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     loadData();
   }, [safeLocalStorage, showToast]);
 
-  // Improved localStorage saving with error handling
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -241,14 +230,12 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         safeLocalStorage.setItem(SAVED_KEY, JSON.stringify(savedItems));
       } catch (error) {
         console.error("Save error:", error);
-        // Error already handled in safeLocalStorage.setItem
       }
-    }, 500); // Increased debounce to reduce frequency
+    }, 500);
 
     return () => clearTimeout(timeoutId);
   }, [cartItems, savedItems, isLoaded, safeLocalStorage]);
 
-  // Cart operations with better feedback
   const addToCart = useCallback(
     async (item: CartItem) => {
       raceManager.current.enqueueOperation({
@@ -319,7 +306,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       raceManager.current.enqueueOperation({
         type: "SAVE_FOR_LATER",
         productId: item.productId,
-        payload: item, // Preserve full item including quantity
+        payload: item,
       });
 
       updateCartItemsSafely((prev) =>
@@ -387,7 +374,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     [updateSavedItemsSafely, showToast]
   );
 
-  // Memoized context value to prevent unnecessary re-renders
   const contextValue = useMemo(
     () => ({
       cartItems,

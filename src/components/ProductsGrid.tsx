@@ -16,8 +16,8 @@ interface ProductsGridProps {
   ) => Promise<void>;
   addToCart: (item: CartItem) => Promise<void>;
   saveForLater: (item: CartItem) => Promise<void>;
-  savedItems: CartItem[]; // Add this prop
-  removeFromSaved: (productId: number) => Promise<void>; // Add this prop
+  savedItems: CartItem[];
+  removeFromSaved: (productId: number) => Promise<void>;
 }
 
 const ProductsGrid = ({
@@ -31,7 +31,6 @@ const ProductsGrid = ({
   savedItems,
   removeFromSaved,
 }: ProductsGridProps) => {
-  // Fix: Direct calls without double wrapping
   const handleAddToCart = async (product: Product) => {
     const cartItem: CartItem = {
       productId: product.id,
@@ -78,8 +77,7 @@ const ProductsGrid = ({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
       {isLoading
-        ? // Show skeleton loaders while loading
-          Array.from({ length: 6 }).map((_, index) => (
+        ? Array.from({ length: 6 }).map((_, index) => (
             <div
               key={index}
               className="bg-white rounded-lg shadow-sm border animate-pulse"

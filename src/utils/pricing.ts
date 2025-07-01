@@ -1,7 +1,6 @@
 import type { LoyaltyTier } from "../types/Loyalty";
 import type { CartItem } from "../types/CartItem";
 
-// EXISTING FUNCTIONS FIRST - Keep these as they were
 export function getLoyaltyDiscountWithMessage(tier: LoyaltyTier, price: number): {
   price: number;
   message: string;
@@ -39,7 +38,6 @@ export function getVolumeDiscount(quantity: number, price: number): number {
   return price;
 }
 
-// NEW: Calculate final price with all discounts applied in correct order
 export function calculateItemFinalPrice(
   basePrice: number,
   quantity: number,
@@ -53,13 +51,11 @@ export function calculateItemFinalPrice(
   let currentPrice = basePrice;
   const originalPrice = basePrice;
 
-  // Step 1: Apply peak hour pricing (affects base price)
   if (isPeakHour()) {
     currentPrice = Math.round(currentPrice * 1.1);
     appliedDiscounts.push("Peak Hour: +10%");
   }
 
-  // Step 2: Apply volume discount
   const volumeDiscountedPrice = getVolumeDiscount(quantity, currentPrice);
   if (volumeDiscountedPrice < currentPrice) {
     const discountPercent = ((currentPrice - volumeDiscountedPrice) / currentPrice * 100).toFixed(0);
@@ -67,7 +63,6 @@ export function calculateItemFinalPrice(
   }
   currentPrice = volumeDiscountedPrice;
 
-  // Step 3: Apply loyalty discount
   const { price: loyaltyDiscountedPrice, message } = getLoyaltyDiscountWithMessage(loyaltyTier, currentPrice);
   if (loyaltyDiscountedPrice < currentPrice && message) {
     appliedDiscounts.push(message);
@@ -81,7 +76,6 @@ export function calculateItemFinalPrice(
   };
 }
 
-// UPDATED: Fixed category promotion to return affected item
 export function applyCategoryPromotion(cartItems: CartItem[]): {
   updatedCart: CartItem[];
   promotionDiscount: number;
