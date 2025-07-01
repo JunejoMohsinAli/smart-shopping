@@ -1,8 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { CartContext } from "./CartContext";
 import type { CartItem } from "../types/CartItem";
 import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import {
+  RaceConditionManager,
+  type Operation,
+} from "../utils/RaceConditionManager";
 
 const CART_KEY = "smart_cart";
 const SAVED_KEY = "saved_items";
@@ -11,103 +14,406 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [savedItems, setSavedItems] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [lastToastTime, setLastToastTime] = useState<Record<string, number>>(
+    {}
+  );
 
-  const simulateApiCall = async () => {
-    const fail = Math.random() < 0.2; // 20% chance to fail
-    await new Promise((res) => setTimeout(res, 500));
-    if (fail) throw new Error("Simulated network error");
-  };
+  // Race condition manager - only create once
+  const raceManager = useRef(new RaceConditionManager());
 
-  useEffect(() => {
-    const storedCart = localStorage.getItem(CART_KEY);
-    const storedSaved = localStorage.getItem(SAVED_KEY);
+  // Safe localStorage operations with error handling
+  const safeLocalStorage = useMemo(
+    () => ({
+      getItem: (key: string): string | null => {
+        try {
+          return localStorage.getItem(key);
+        } catch (error) {
+          console.error(`Failed to read from localStorage (${key}):`, error);
+          toast.error("Failed to load saved data");
+          return null;
+        }
+      },
 
-    if (storedCart) setCartItems(JSON.parse(storedCart));
-    if (storedSaved) setSavedItems(JSON.parse(storedSaved));
-    setIsLoaded(true);
+      setItem: (key: string, value: string): void => {
+        try {
+          localStorage.setItem(key, value);
+        } catch (error) {
+          console.error(`Failed to save to localStorage (${key}):`, error);
+          toast.error("Storage full - unable to save");
+        }
+      },
+    }),
+    []
+  );
+
+  // Rate-limited toast notifications to prevent spam
+  const showToast = useCallback(
+    (message: string, type: "success" | "error" | "warning" = "success") => {
+      const now = Date.now();
+      const lastTime = lastToastTime[message] || 0;
+
+      // Prevent spam - only show same message once per 2 seconds
+      if (now - lastTime > 2000) {
+        setLastToastTime((prev) => ({ ...prev, [message]: now }));
+        toast[type](message);
+      }
+    },
+    [lastToastTime]
+  );
+
+  // Improved API simulation - reduce failure rate to 3%
+  const simulateApiCall = useCallback(async () => {
+    const fail = Math.random() < 0.03; // Reduced from 10% to 3%
+    await new Promise((res) => setTimeout(res, Math.random() * 400 + 100));
+    if (fail) {
+      const error = new Error("Network request failed");
+      error.name = "NetworkError";
+      throw error;
+    }
   }, []);
 
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem(CART_KEY, JSON.stringify(cartItems));
-      localStorage.setItem(SAVED_KEY, JSON.stringify(savedItems));
-    }
-  }, [cartItems, savedItems, isLoaded]);
+  // Memoized state updaters
+  const updateCartItemsSafely = useCallback(
+    (updater: (prev: CartItem[]) => CartItem[]) => {
+      setCartItems(updater);
+    },
+    []
+  );
 
-  const addToCart = async (item: CartItem) => {
-    try {
-      await simulateApiCall();
-      setCartItems((prev) => {
-        const existing = prev.find((i) => i.productId === item.productId);
-        if (existing) {
+  const updateSavedItemsSafely = useCallback(
+    (updater: (prev: CartItem[]) => CartItem[]) => {
+      setSavedItems(updater);
+    },
+    []
+  );
+
+  // Optimized operation executor with memoization
+  const executeOperation = useCallback(
+    async (operation: Operation): Promise<void> => {
+      try {
+        await simulateApiCall();
+
+        switch (operation.type) {
+          case "ADD_TO_CART":
+            updateCartItemsSafely((prev) => {
+              const existing = prev.find(
+                (i) => i.productId === operation.productId
+              );
+              return existing
+                ? prev.map((i) =>
+                    i.productId === operation.productId
+                      ? {
+                          ...i,
+                          quantity: i.quantity + operation.payload.quantity,
+                        }
+                      : i
+                  )
+                : [...prev, operation.payload];
+            });
+            break;
+
+          case "REMOVE_FROM_CART":
+            updateCartItemsSafely((prev) =>
+              prev.filter((item) => item.productId !== operation.productId)
+            );
+            break;
+
+          case "SAVE_FOR_LATER":
+            const itemToSave = operation.payload;
+            updateCartItemsSafely((prev) =>
+              prev.filter((i) => i.productId !== operation.productId)
+            );
+            updateSavedItemsSafely((prev) => {
+              const exists = prev.find(
+                (i) => i.productId === operation.productId
+              );
+              return exists
+                ? prev
+                : [...prev, { ...itemToSave, quantity: itemToSave.quantity }]; // Preserve quantity
+            });
+            break;
+
+          case "MOVE_TO_CART":
+            const savedItem = savedItems.find(
+              (i) => i.productId === operation.productId
+            );
+            if (savedItem) {
+              updateSavedItemsSafely((prev) =>
+                prev.filter((i) => i.productId !== operation.productId)
+              );
+              updateCartItemsSafely((prev) => {
+                const exists = prev.find(
+                  (i) => i.productId === operation.productId
+                );
+                return exists
+                  ? prev.map((i) =>
+                      i.productId === operation.productId
+                        ? { ...i, quantity: i.quantity + savedItem.quantity } // Preserve quantity
+                        : i
+                    )
+                  : [...prev, savedItem];
+              });
+            }
+            break;
+
+          case "REMOVE_FROM_SAVED":
+            updateSavedItemsSafely((prev) =>
+              prev.filter((i) => i.productId !== operation.productId)
+            );
+            break;
+
+          case "UPDATE_QUANTITY":
+            updateCartItemsSafely((prev) =>
+              prev.map((item) =>
+                item.productId === operation.productId
+                  ? { ...item, quantity: operation.payload.quantity }
+                  : item
+              )
+            );
+            break;
+        }
+      } catch (error) {
+        console.error("Operation failed:", error);
+        throw error;
+      }
+    },
+    [simulateApiCall, updateCartItemsSafely, updateSavedItemsSafely, savedItems]
+  );
+
+  // Queue processing with better error handling
+  useEffect(() => {
+    let isProcessing = false;
+
+    const processQueue = async () => {
+      if (isProcessing) return;
+      isProcessing = true;
+
+      try {
+        await raceManager.current.processAllOperations(executeOperation);
+      } catch (error) {
+        console.error("Queue processing error:", error);
+      } finally {
+        isProcessing = false;
+      }
+    };
+
+    const interval = setInterval(processQueue, 300);
+    return () => clearInterval(interval);
+  }, [executeOperation]);
+
+  // Improved data loading with error handling
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [storedCart, storedSaved] = [
+          safeLocalStorage.getItem(CART_KEY),
+          safeLocalStorage.getItem(SAVED_KEY),
+        ];
+
+        if (storedCart) {
+          const parsedCart = JSON.parse(storedCart);
+          setCartItems(Array.isArray(parsedCart) ? parsedCart : []);
+        }
+
+        if (storedSaved) {
+          const parsedSaved = JSON.parse(storedSaved);
+          setSavedItems(Array.isArray(parsedSaved) ? parsedSaved : []);
+        }
+
+        setIsLoaded(true);
+      } catch (error) {
+        console.error("Load error:", error);
+        setIsLoaded(true);
+        showToast("Failed to load cart data", "error");
+      }
+    };
+
+    loadData();
+  }, [safeLocalStorage, showToast]);
+
+  // Improved localStorage saving with error handling
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const timeoutId = setTimeout(() => {
+      try {
+        safeLocalStorage.setItem(CART_KEY, JSON.stringify(cartItems));
+        safeLocalStorage.setItem(SAVED_KEY, JSON.stringify(savedItems));
+      } catch (error) {
+        console.error("Save error:", error);
+        // Error already handled in safeLocalStorage.setItem
+      }
+    }, 500); // Increased debounce to reduce frequency
+
+    return () => clearTimeout(timeoutId);
+  }, [cartItems, savedItems, isLoaded, safeLocalStorage]);
+
+  // Cart operations with better feedback
+  const addToCart = useCallback(
+    async (item: CartItem) => {
+      raceManager.current.enqueueOperation({
+        type: "ADD_TO_CART",
+        productId: item.productId,
+        payload: item,
+      });
+
+      showToast("✅ Added to cart");
+    },
+    [showToast]
+  );
+
+  const removeFromCart = useCallback(
+    async (productId: number) => {
+      if (raceManager.current.isProductLocked(productId)) {
+        showToast("⏳ Processing...", "warning");
+        return;
+      }
+
+      raceManager.current.enqueueOperation({
+        type: "REMOVE_FROM_CART",
+        productId,
+      });
+      updateCartItemsSafely((prev) =>
+        prev.filter((item) => item.productId !== productId)
+      );
+      showToast("Removed from cart");
+    },
+    [updateCartItemsSafely, showToast]
+  );
+
+  const updateQuantity = useCallback(
+    async (productId: number, quantity: number) => {
+      if (quantity <= 0) {
+        await removeFromCart(productId);
+        return;
+      }
+
+      if (raceManager.current.isProductLocked(productId)) {
+        showToast("⏳ Processing...", "warning");
+        return;
+      }
+
+      raceManager.current.enqueueOperation({
+        type: "UPDATE_QUANTITY",
+        productId,
+        payload: { quantity },
+      });
+
+      updateCartItemsSafely((prev) =>
+        prev.map((item) =>
+          item.productId === productId ? { ...item, quantity } : item
+        )
+      );
+      showToast("Quantity updated");
+    },
+    [updateCartItemsSafely, showToast, removeFromCart]
+  );
+
+  const saveForLater = useCallback(
+    async (item: CartItem) => {
+      if (raceManager.current.isProductLocked(item.productId)) {
+        showToast("⏳ Processing...", "warning");
+        return;
+      }
+
+      raceManager.current.enqueueOperation({
+        type: "SAVE_FOR_LATER",
+        productId: item.productId,
+        payload: item, // Preserve full item including quantity
+      });
+
+      updateCartItemsSafely((prev) =>
+        prev.filter((i) => i.productId !== item.productId)
+      );
+      updateSavedItemsSafely((prev) => {
+        const exists = prev.find((i) => i.productId === item.productId);
+        return exists ? prev : [...prev, item];
+      });
+
+      showToast("⭐ Saved for later");
+    },
+    [updateCartItemsSafely, updateSavedItemsSafely, showToast]
+  );
+
+  const moveToCart = useCallback(
+    async (productId: number) => {
+      if (raceManager.current.isProductLocked(productId)) {
+        showToast("⏳ Processing...", "warning");
+        return;
+      }
+
+      const item = savedItems.find((i) => i.productId === productId);
+      if (!item) return;
+
+      raceManager.current.enqueueOperation({ type: "MOVE_TO_CART", productId });
+
+      updateSavedItemsSafely((prev) =>
+        prev.filter((i) => i.productId !== productId)
+      );
+      updateCartItemsSafely((prev) => {
+        const exists = prev.find((i) => i.productId === productId);
+        if (exists) {
+          showToast("Quantity increased");
           return prev.map((i) =>
-            i.productId === item.productId
+            i.productId === productId
               ? { ...i, quantity: i.quantity + item.quantity }
               : i
           );
         } else {
+          showToast("Moved to cart");
           return [...prev, item];
         }
       });
-      toast.success("✅ Item added to cart");
-    } catch (error) {
-      toast.error("❌ Failed to add item to cart");
-    }
-  };
+    },
+    [savedItems, updateCartItemsSafely, updateSavedItemsSafely, showToast]
+  );
 
-  const removeFromCart = (productId: number) => {
-    setCartItems((prev) => prev.filter((item) => item.productId !== productId));
-    toast.success("Item removed from cart.");
-  };
-
-  const saveForLater = (item: CartItem) => {
-    setCartItems((prev) => prev.filter((i) => i.productId !== item.productId));
-    setSavedItems((prev) => {
-      const exists = prev.find((i) => i.productId === item.productId);
-      return exists ? prev : [...prev, item];
-    });
-    toast.success("💾 Saved for later");
-  };
-
-  const moveToCart = (productId: number) => {
-    const item = savedItems.find((i) => i.productId === productId);
-    if (!item) return;
-    setSavedItems((prev) => prev.filter((i) => i.productId !== productId));
-    setCartItems((prev) => {
-      const exists = prev.find((i) => i.productId === productId);
-      if (exists) {
-        toast.success("Increased quantity in cart from saved list.");
-        return prev.map((i) =>
-          i.productId === productId
-            ? { ...i, quantity: i.quantity + item.quantity }
-            : i
-        );
-      } else {
-        toast.success("Moved to cart.");
-        return [...prev, item];
+  const removeFromSaved = useCallback(
+    async (productId: number) => {
+      if (raceManager.current.isProductLocked(productId)) {
+        showToast("⏳ Processing...", "warning");
+        return;
       }
-    });
-  };
 
-  const removeFromSaved = (productId: number) => {
-    setSavedItems((prev) => prev.filter((i) => i.productId !== productId));
-    toast.success("Item removed from saved list.");
-  };
+      raceManager.current.enqueueOperation({
+        type: "REMOVE_FROM_SAVED",
+        productId,
+      });
+      updateSavedItemsSafely((prev) =>
+        prev.filter((i) => i.productId !== productId)
+      );
+      showToast("🗑️ Removed from saved items");
+    },
+    [updateSavedItemsSafely, showToast]
+  );
+
+  // Memoized context value to prevent unnecessary re-renders
+  const contextValue = useMemo(
+    () => ({
+      cartItems,
+      savedItems,
+      isLoaded,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      saveForLater,
+      moveToCart,
+      removeFromSaved,
+    }),
+    [
+      cartItems,
+      savedItems,
+      isLoaded,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      saveForLater,
+      moveToCart,
+      removeFromSaved,
+    ]
+  );
 
   return (
-    <CartContext.Provider
-      value={{
-        cartItems,
-        savedItems,
-        isLoaded,
-        addToCart,
-        removeFromCart,
-        saveForLater,
-        moveToCart,
-        removeFromSaved,
-      }}
-    >
-      {children}
-    </CartContext.Provider>
+    <CartContext.Provider value={contextValue}>{children}</CartContext.Provider>
   );
 };
