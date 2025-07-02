@@ -35,7 +35,7 @@ const Header = ({ totalItemsInCart, onCartToggle }: HeaderProps) => {
             <ShoppingCart size={20} className="sm:w-5 sm:h-5" />
             <span className="hidden sm:inline font-medium">Cart</span>
             {totalItemsInCart > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold shadow-lg animate-pulse">
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold shadow-lg animate-">
                 {totalItemsInCart}
               </span>
             )}

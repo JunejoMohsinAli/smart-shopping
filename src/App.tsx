@@ -202,7 +202,7 @@ function App() {
         <main className="max-w-7xl mx-auto px-4 py-8 relative z-10">
           {/* Simplified Welcome Section */}
           <div className="text-center mb-6">
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-4">
+            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-6">
               Smart Shopping
             </h1>
             <p className="text-gray-600 max-w-xl mx-auto">
