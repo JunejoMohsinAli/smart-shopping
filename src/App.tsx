@@ -7,6 +7,7 @@ import {
   LoyaltySection,
   ProductsGrid,
   CartSidebar,
+  Footer,
 } from "./components";
 
 // Services & Utils
@@ -300,6 +301,7 @@ function App() {
           moveToCart={handleMoveToCart}
           removeFromSaved={handleRemoveFromSaved}
         />
+        <Footer />
       </div>
     </ErrorBoundary>
   );

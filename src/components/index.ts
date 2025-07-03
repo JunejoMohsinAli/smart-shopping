@@ -7,3 +7,4 @@ export { default as ProductsGrid } from './ProductsGrid';
 export { default as CartSidebar } from './CartSidebar';
 export { default as LoadingScreen } from './LoadingScreen';
 export { ProductSkeleton, CartItemSkeleton } from './LoadingSkeletons';
+export { default as Footer } from './Footer';
