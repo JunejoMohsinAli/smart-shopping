@@ -416,7 +416,7 @@ const CartSidebar = ({
                             )
                           }
                           disabled={isItemLoading}
-                          className={`p-2 rounded-lg transition-all ${
+                          className={`px-3 py-2 rounded-lg transition-all flex items-center gap-2 ${
                             isItemLoading
                               ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                               : "bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200 shadow-md hover:shadow-lg"
@@ -424,9 +424,19 @@ const CartSidebar = ({
                           title="Remove from saved"
                         >
                           {isItemLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span className="text-sm font-medium">
+                                Removing...
+                              </span>
+                            </>
                           ) : (
-                            <Trash2 size={16} />
+                            <>
+                              <Trash2 size={16} />
+                              <span className="text-sm font-medium">
+                                Remove
+                              </span>
+                            </>
                           )}
                         </button>
                       </div>
