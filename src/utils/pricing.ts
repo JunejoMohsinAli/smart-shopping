@@ -1,15 +1,15 @@
 import type { LoyaltyTier } from "../types/Loyalty";
 import type { CartItem } from "../types/CartItem";
 
-export function getLoyaltyDiscountWithMessage(tier: LoyaltyTier, price: number): {
-  price: number;
-  message: string;
-} {
+export function getLoyaltyDiscountWithMessage(
+  tier: LoyaltyTier,
+  price: number
+): { price: number; message: string } {
   switch (tier) {
     case "Bronze":
       return { price: price * 0.95, message: "Bronze Tier: 5% off" };
     case "Silver":
-      return { price: price * 0.90, message: "Silver Tier: 10% off" };
+      return { price: price * 0.9, message: "Silver Tier: 10% off" };
     case "Gold":
       return { price: price * 0.85, message: "Gold Tier: 15% off" };
     default:
@@ -27,15 +27,28 @@ export function isPeakHour(): boolean {
   return hour >= 9 && hour < 18;
 }
 
-export function getDynamicPrice(basePrice: number): number {
+export function getDynamicPrice(basePrice: number): {
+  price: number;
+  peakApplied: boolean;
+} {
   const peakMultiplier = 1.1;
-  return isPeakHour() ? Math.round(basePrice * peakMultiplier) : basePrice;
+  const peakApplied = isPeakHour();
+  return {
+    price: peakApplied ? Math.round(basePrice * peakMultiplier) : basePrice,
+    peakApplied,
+  };
 }
 
-export function getVolumeDiscount(quantity: number, price: number): number {
-  if (quantity >= 5) return price * 0.9;
-  if (quantity >= 3) return price * 0.95;
-  return price;
+export function getVolumeDiscount(
+  quantity: number,
+  price: number
+): {
+  price: number;
+  percent: number;
+} {
+  if (quantity >= 5) return { price: price * 0.9, percent: 10 };
+  if (quantity >= 3) return { price: price * 0.95, percent: 5 };
+  return { price, percent: 0 };
 }
 
 export function calculateItemFinalPrice(
@@ -48,54 +61,61 @@ export function calculateItemFinalPrice(
   savings: number;
 } {
   const appliedDiscounts: string[] = [];
-  let currentPrice = basePrice;
-  const originalPrice = basePrice;
 
-  if (isPeakHour()) {
-    currentPrice = Math.round(currentPrice * 1.1);
+  // Apply peak hour adjustment
+  const { price: peakPrice, peakApplied } = getDynamicPrice(basePrice);
+  if (peakApplied) {
     appliedDiscounts.push("Peak Hour: +10%");
   }
 
-  const volumeDiscountedPrice = getVolumeDiscount(quantity, currentPrice);
-  if (volumeDiscountedPrice < currentPrice) {
-    const discountPercent = ((currentPrice - volumeDiscountedPrice) / currentPrice * 100).toFixed(0);
-    appliedDiscounts.push(`Volume: -${discountPercent}%`);
+  // Apply volume discount
+  const { price: volumePrice, percent: volumePercent } = getVolumeDiscount(quantity, peakPrice);
+  if (volumePercent > 0) {
+    appliedDiscounts.push(`Volume: -${volumePercent}%`);
   }
-  currentPrice = volumeDiscountedPrice;
 
-  const { price: loyaltyDiscountedPrice, message } = getLoyaltyDiscountWithMessage(loyaltyTier, currentPrice);
-  if (loyaltyDiscountedPrice < currentPrice && message) {
+  // Loyalty discount is applied last
+  const { price: loyaltyPrice, message } = getLoyaltyDiscountWithMessage(loyaltyTier, volumePrice);
+  if (loyaltyPrice < volumePrice && message) {
     appliedDiscounts.push(message);
   }
-  currentPrice = loyaltyDiscountedPrice;
+
+  const finalPrice = loyaltyPrice;
+
+  // Calculate savings from *only* loyalty discount
+  const savings = Math.max(0, (volumePrice - loyaltyPrice) * quantity);
 
   return {
-    finalPrice: currentPrice,
+    finalPrice,
     appliedDiscounts,
-    savings: Math.max(0, originalPrice - currentPrice)
+    savings,
   };
 }
 
 export function applyCategoryPromotion(cartItems: CartItem[]): {
-  updatedCart: CartItem[];
   promotionDiscount: number;
   affectedItem?: CartItem;
 } {
-  const electronics = cartItems.filter((item) => item.category === "Electronics");
+  // Count total quantity of Electronics and Accessories
+  const totalElectronicsQty = cartItems
+    .filter((item) => item.category === "Electronics")
+    .reduce((sum, item) => sum + item.quantity, 0);
+
   const accessories = cartItems.filter((item) => item.category === "Accessories");
 
-  let discount = 0;
-  let affectedItem: CartItem | undefined;
-
-  if (electronics.length >= 2 && accessories.length >= 1) {
+  // Only apply promo if eligible
+  if (totalElectronicsQty >= 2 && accessories.length > 0) {
     const cheapestAccessory = [...accessories].sort((a, b) => a.basePrice - b.basePrice)[0];
-    discount = cheapestAccessory.basePrice * 0.5;
-    affectedItem = cheapestAccessory;
+
+    const discount = cheapestAccessory.basePrice * 0.5;
+
+    return {
+      promotionDiscount: discount,
+      affectedItem: cheapestAccessory,
+    };
   }
 
   return {
-    updatedCart: cartItems,
-    promotionDiscount: discount,
-    affectedItem,
+    promotionDiscount: 0,
   };
 }

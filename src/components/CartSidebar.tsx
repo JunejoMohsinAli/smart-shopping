@@ -1,4 +1,7 @@
 import React, { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useLoyalty } from "../context/LoyaltyContext";
+
 import {
   ShoppingCart,
   X,
@@ -10,7 +13,7 @@ import {
   Plus,
   Minus,
 } from "lucide-react";
-import type { CartItem, LoyaltyTier } from "../types";
+import type { CartItem } from "../types";
 import {
   applyCategoryPromotion,
   calculateItemFinalPrice,
@@ -21,7 +24,6 @@ interface CartSidebarProps {
   activeTab: "cart" | "saved";
   cartItems: CartItem[];
   savedItems: CartItem[];
-  userLoyaltyTier: LoyaltyTier;
   loadingStates: Record<number, boolean>;
   onClose: () => void;
   onTabChange: (tab: "cart" | "saved") => void;
@@ -38,19 +40,19 @@ interface CartSidebarProps {
 const CartItemComponent = React.memo(
   ({
     item,
-    userLoyaltyTier,
     isItemLoading,
     onRemove,
     onSaveForLater,
     onUpdateQuantity,
   }: {
     item: CartItem;
-    userLoyaltyTier: LoyaltyTier;
     isItemLoading: boolean;
     onRemove: () => void;
     onSaveForLater: () => void;
     onUpdateQuantity: (quantity: number) => void;
   }) => {
+    const { userLoyaltyTier } = useLoyalty();
+
     const { finalPrice, appliedDiscounts, savings } = useMemo(
       () =>
         calculateItemFinalPrice(item.basePrice, item.quantity, userLoyaltyTier),
@@ -59,9 +61,9 @@ const CartItemComponent = React.memo(
 
     const itemTotal = finalPrice * item.quantity;
 
-    const handleQuantityChange = (change: number) => {
+    const handleQuantityChange: (change: number) => void = (change) => {
       const newQuantity = item.quantity + change;
-      if (newQuantity >= 1) {
+      if (newQuantity >= 1 && newQuantity <= item.stock) {
         onUpdateQuantity(newQuantity);
       }
     };
@@ -80,7 +82,6 @@ const CartItemComponent = React.memo(
               {item.name}
             </h4>
             <div className="space-y-1">
-              {/* Quantity Controls */}
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Qty:</span>
                 <div className="flex items-center gap-1">
@@ -96,7 +97,7 @@ const CartItemComponent = React.memo(
                   </span>
                   <button
                     onClick={() => handleQuantityChange(1)}
-                    disabled={isItemLoading}
+                    disabled={isItemLoading || item.quantity >= item.stock}
                     className="p-1 rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus className="w-3 h-3" />
@@ -104,11 +105,16 @@ const CartItemComponent = React.memo(
                 </div>
               </div>
 
+              {/* 🔧 ADDED: Explicit Stock Line for Debugging */}
+              <p className="text-xs text-gray-500">
+                Stock Available:{" "}
+                <span className="font-medium">{item.stock}</span>
+              </p>
+
               <p className="text-sm font-medium text-gray-900">
                 Rs. {finalPrice.toFixed(0)} each
               </p>
 
-              {/* Applied Discounts */}
               {appliedDiscounts.length > 0 && (
                 <div className="space-y-1">
                   {appliedDiscounts.map((discount, idx) => (
@@ -119,7 +125,6 @@ const CartItemComponent = React.memo(
                 </div>
               )}
 
-              {/* Savings */}
               {savings > 0 && (
                 <p className="text-xs text-green-600 font-medium">
                   You save: Rs. {(savings * item.quantity).toFixed(0)}
@@ -178,7 +183,6 @@ const CartSidebar = ({
   activeTab,
   cartItems,
   savedItems,
-  userLoyaltyTier,
   loadingStates,
   onClose,
   onTabChange,
@@ -189,6 +193,8 @@ const CartSidebar = ({
   moveToCart,
   removeFromSaved,
 }: CartSidebarProps) => {
+  const { userLoyaltyTier } = useLoyalty();
+  const navigate = useNavigate();
   const {
     promotionDiscount,
     grandTotal,
@@ -308,7 +314,6 @@ const CartSidebar = ({
                   <CartItemComponent
                     key={item.productId}
                     item={item}
-                    userLoyaltyTier={userLoyaltyTier}
                     isItemLoading={loadingStates[item.productId] || false}
                     onRemove={() =>
                       onAsyncAction(
@@ -481,7 +486,10 @@ const CartSidebar = ({
                 </span>
               </div>
 
-              <button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white py-4 rounded-xl font-bold text-lg transition-colors duration-200 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl">
+              <button
+                onClick={() => navigate("/checkout")}
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white py-4 rounded-xl font-bold text-lg transition-colors duration-200 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl"
+              >
                 <CreditCard className="w-5 h-5" />
                 Proceed to Checkout
               </button>

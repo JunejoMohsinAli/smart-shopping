@@ -43,6 +43,7 @@ const ProductsGrid = ({
       quantity: quantity, // Use the actual selected quantity
       image: product.image,
       category: product.category,
+      stock: product.stock,
     };
 
     await onAddToCart(product.id, async () => await addToCart(cartItem));
@@ -56,6 +57,7 @@ const ProductsGrid = ({
       quantity: quantity, // Use the actual selected quantity
       image: product.image,
       category: product.category,
+      stock: product.stock,
     };
 
     // Check if already saved

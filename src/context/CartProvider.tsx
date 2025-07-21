@@ -226,14 +226,25 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     return () => clearTimeout(timeoutId);
   }, [cartItems, savedItems, isLoaded, safeLocalStorage]);
 
-  // Cart operations - no toast notifications
-  const addToCart = useCallback(async (item: CartItem) => {
-    raceManager.current.enqueueOperation({
-      type: "ADD_TO_CART",
-      productId: item.productId,
-      payload: item,
-    });
-  }, []);
+  const addToCart = useCallback(
+    async (item: CartItem) => {
+      const existing = cartItems.find((i) => i.productId === item.productId);
+      const currentQty = existing ? existing.quantity : 0;
+      const newQty = currentQty + item.quantity;
+
+      if (newQty > item.stock) {
+        console.warn("Cannot add more than available stock.");
+        return;
+      }
+
+      raceManager.current.enqueueOperation({
+        type: "ADD_TO_CART",
+        productId: item.productId,
+        payload: item,
+      });
+    },
+    [cartItems]
+  );
 
   const removeFromCart = useCallback(
     async (productId: number) => {
@@ -254,14 +265,20 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   const updateQuantity = useCallback(
     async (productId: number, quantity: number) => {
+      const item = cartItems.find((i) => i.productId === productId);
+      if (!item) return;
+
       if (quantity <= 0) {
         await removeFromCart(productId);
         return;
       }
 
-      if (raceManager.current.isProductLocked(productId)) {
+      if (quantity > item.stock) {
+        console.warn("Cannot add more than available stock.");
         return;
       }
+
+      if (raceManager.current.isProductLocked(productId)) return;
 
       raceManager.current.enqueueOperation({
         type: "UPDATE_QUANTITY",
@@ -270,12 +287,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       updateCartItemsSafely((prev) =>
-        prev.map((item) =>
-          item.productId === productId ? { ...item, quantity } : item
-        )
+        prev.map((i) => (i.productId === productId ? { ...i, quantity } : i))
       );
     },
-    [updateCartItemsSafely, removeFromCart]
+    [cartItems, removeFromCart, updateCartItemsSafely]
   );
 
   const saveForLater = useCallback(

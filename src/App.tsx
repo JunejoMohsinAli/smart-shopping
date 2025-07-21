@@ -1,4 +1,10 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { Routes, Route } from "react-router-dom";
+import CheckoutPage from "./pages/CheckOut";
+import About from "./pages/About";
+import Support from "./pages/Support";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 
 // Components
 import {
@@ -14,6 +20,7 @@ import {
 import { fakeProducts } from "./services/fakeProducts";
 import { simulateStockUpdate } from "./services/stockSimulator";
 import { useCartContext } from "./context/CartContext";
+import { LoyaltyProvider } from "./context/LoyaltyContext";
 
 // Types
 import type { Product } from "./types/Product";
@@ -21,7 +28,7 @@ import type { LoyaltyTier } from "./types/Loyalty";
 import type { CartItem } from "./types/CartItem";
 
 function App() {
-  // State
+  // ─── State & Hooks ─────────────────────────────────────────────────────────
   const [products, setProducts] = useState<Product[]>(fakeProducts);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"cart" | "saved">("cart");
@@ -30,7 +37,6 @@ function App() {
   );
   const [isProductsLoading, setIsProductsLoading] = useState(true);
 
-  // Context
   const {
     cartItems,
     savedItems,
@@ -43,267 +49,201 @@ function App() {
     isLoaded,
   } = useCartContext();
 
-  // Loyalty tier
-  const [userLoyaltyTier, setUserLoyaltyTier] = useState<LoyaltyTier>(() => {
+  const [userLoyaltyTier] = useState<LoyaltyTier>(() => {
     return (localStorage.getItem("loyaltyTier") as LoyaltyTier) || "None";
   });
 
-  // Memoized calculations to prevent unnecessary re-renders
   const { totalItemsInCart, availableProductsCount } = useMemo(() => {
-    const totalItemsInCart = cartItems.reduce(
-      (sum, item) => sum + item.quantity,
-      0
-    );
-    const availableProductsCount = products.filter(
-      (product) => product.stock > 0
-    ).length;
-
-    return { totalItemsInCart, availableProductsCount };
+    const totalItems = cartItems.reduce((sum, i) => sum + i.quantity, 0);
+    const availableCount = products.filter((p) => p.stock > 0).length;
+    return {
+      totalItemsInCart: totalItems,
+      availableProductsCount: availableCount,
+    };
   }, [cartItems, products]);
 
-  // Optimized products loading (reduced time)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsProductsLoading(false);
-    }, 800); // Reduced from 1500ms to 800ms
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setIsProductsLoading(false), 800);
+    return () => clearTimeout(t);
   }, []);
 
-  // Debounced loyalty tier saving
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      localStorage.setItem("loyaltyTier", userLoyaltyTier);
-    }, 200);
-    return () => clearTimeout(timeoutId);
+    const id = setTimeout(
+      () => localStorage.setItem("loyaltyTier", userLoyaltyTier),
+      200
+    );
+    return () => clearTimeout(id);
   }, [userLoyaltyTier]);
 
-  // Optimized stock simulation with race condition prevention
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProducts((prevProducts) => {
-        const updated = simulateStockUpdate(prevProducts);
-
-        // Only auto-remove if no operations are pending for those products
+    const iv = setInterval(() => {
+      setProducts((prev) => {
+        const updated = simulateStockUpdate(prev);
         const outOfStockIds = updated
-          .filter((product) => product.stock === 0)
-          .map((product) => product.id);
-
-        if (outOfStockIds.length > 0) {
-          // Add small delay to avoid race conditions with ongoing operations
+          .filter((p) => p.stock === 0)
+          .map((p) => p.id);
+        if (outOfStockIds.length) {
           setTimeout(() => {
-            const itemsToRemove = cartItems.filter((item) =>
-              outOfStockIds.includes(item.productId)
-            );
-
-            if (itemsToRemove.length > 0) {
-              itemsToRemove.forEach((item) => {
-                removeFromCart(item.productId);
-              });
-            }
-          }, 1000); // 1 second delay to avoid conflicts
+            cartItems
+              .filter((i) => outOfStockIds.includes(i.productId))
+              .forEach((i) => removeFromCart(i.productId));
+          }, 1000);
         }
-
         return updated;
       });
-    }, 60000); // Increased to 1 minute for better performance
-    return () => clearInterval(interval);
+    }, 60000);
+    return () => clearInterval(iv);
   }, [cartItems, removeFromCart]);
 
-  // Optimized loading handler with debouncing
   const handleAsyncAction = useCallback(
     async (productId: number, action: () => Promise<void>) => {
-      setLoadingStates((prev) => ({ ...prev, [productId]: true }));
+      setLoadingStates((s) => ({ ...s, [productId]: true }));
       try {
         await action();
       } finally {
-        // Debounce loading state reset
-        setTimeout(() => {
-          setLoadingStates((prev) => ({ ...prev, [productId]: false }));
-        }, 100);
+        setTimeout(
+          () => setLoadingStates((s) => ({ ...s, [productId]: false })),
+          100
+        );
       }
     },
     []
   );
 
-  // Memoized wrapper functions
   const handleAddToCart = useCallback(
-    async (item: CartItem): Promise<void> => {
-      await addToCart(item);
-    },
+    (item: CartItem) => addToCart(item),
     [addToCart]
   );
-
   const handleSaveForLater = useCallback(
-    async (item: CartItem): Promise<void> => {
-      await saveForLater(item);
-    },
+    (item: CartItem) => saveForLater(item),
     [saveForLater]
   );
-
   const handleRemoveFromCart = useCallback(
-    async (productId: number): Promise<void> => {
-      await removeFromCart(productId);
-    },
+    (id: number) => removeFromCart(id),
     [removeFromCart]
   );
-
   const handleUpdateQuantity = useCallback(
-    async (productId: number, quantity: number): Promise<void> => {
-      await updateQuantity(productId, quantity);
-    },
+    (id: number, qty: number) => updateQuantity(id, qty),
     [updateQuantity]
   );
-
   const handleMoveToCart = useCallback(
-    async (productId: number): Promise<void> => {
-      await moveToCart(productId);
-    },
+    (id: number) => moveToCart(id),
     [moveToCart]
   );
-
   const handleRemoveFromSaved = useCallback(
-    async (productId: number): Promise<void> => {
-      await removeFromSaved(productId);
-    },
+    (id: number) => removeFromSaved(id),
     [removeFromSaved]
   );
+  const handleCartToggle = useCallback(() => setIsCartOpen((o) => !o), []);
 
-  const handleCartToggle = useCallback(() => {
-    setIsCartOpen((prev) => !prev);
-  }, []);
-
-  // Show loading message while cart is initializing
   if (!isLoaded) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-lg font-medium text-gray-700 mb-2">
-          Loading your cart...
-        </div>
-        <div className="text-sm text-gray-500">This won't take long</div>
+        <p className="text-lg text-gray-700">Loading your cart…</p>
       </div>
     );
   }
 
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <ErrorBoundary>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100">
-        {/* Simplified Background Elements - Reduced blur complexity */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-200/10 to-purple-200/10 rounded-full"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-green-200/10 to-blue-200/10 rounded-full"></div>
-        </div>
+    <LoyaltyProvider>
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/support" element={<Support />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route
+            path="/"
+            element={
+              <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 flex flex-col">
+                <Header
+                  totalItemsInCart={totalItemsInCart}
+                  onCartToggle={handleCartToggle}
+                />
 
-        {/* Header */}
-        <Header
-          totalItemsInCart={totalItemsInCart}
-          onCartToggle={handleCartToggle}
-        />
+                <main className="flex-1 max-w-7xl mx-auto px-4 py-8">
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    {[
+                      {
+                        label: "Available",
+                        value: `${availableProductsCount}/${products.length}`,
+                        color: "text-blue-600",
+                      },
+                      {
+                        label: "Cart Items",
+                        value: totalItemsInCart,
+                        color: "text-green-600",
+                      },
+                      {
+                        label: "Saved",
+                        value: savedItems.length,
+                        color: "text-purple-600",
+                      },
+                      {
+                        label: "Tier",
+                        value: userLoyaltyTier,
+                        color: "text-orange-600",
+                      },
+                    ].map((card) => (
+                      <div
+                        key={card.label}
+                        className="bg-white/90 rounded-xl p-3 shadow-sm border border-white/50 text-center"
+                      >
+                        <p className={`text-2xl font-bold ${card.color}`}>
+                          {card.value}
+                        </p>
+                        <p className="text-sm text-gray-600">{card.label}</p>
+                      </div>
+                    ))}
+                  </div>
 
-        {/* Main Content */}
-        <main className="max-w-7xl mx-auto px-4 py-8 relative z-10">
-          {/* Simplified Welcome Section */}
-          <div className="text-center mb-6">
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-6">
-              Smart Shopping
-            </h1>
-            <p className="text-gray-600 max-w-xl mx-auto">
-              Intelligent shopping with dynamic pricing and real-time updates
-            </p>
-          </div>
+                  <LoyaltySection />
 
-          {/* Simplified Stats Cards - Reduced blur effects */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white/90 rounded-xl p-3 shadow-sm border border-white/50">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">
-                  {availableProductsCount}/{products.length}
-                </p>
-                <p className="text-sm text-gray-600">Available</p>
+                  <section className="bg-white/90 rounded-2xl p-6 shadow-lg border border-white/50">
+                    <h2 className="text-2xl font-bold mb-4">
+                      Featured Products
+                    </h2>
+                    <ProductsGrid
+                      products={products}
+                      isLoading={isProductsLoading}
+                      loadingStates={loadingStates}
+                      onAddToCart={handleAsyncAction}
+                      onSaveForLater={handleAsyncAction}
+                      addToCart={handleAddToCart}
+                      saveForLater={handleSaveForLater}
+                      savedItems={savedItems}
+                      removeFromSaved={handleRemoveFromSaved}
+                      userLoyaltyTier={userLoyaltyTier}
+                    />
+                  </section>
+                </main>
+
+                <CartSidebar
+                  isOpen={isCartOpen}
+                  activeTab={activeTab}
+                  cartItems={cartItems}
+                  savedItems={savedItems}
+                  loadingStates={loadingStates}
+                  onClose={() => setIsCartOpen(false)}
+                  onTabChange={setActiveTab}
+                  onAsyncAction={handleAsyncAction}
+                  removeFromCart={handleRemoveFromCart}
+                  updateQuantity={handleUpdateQuantity}
+                  saveForLater={handleSaveForLater}
+                  moveToCart={handleMoveToCart}
+                  removeFromSaved={handleRemoveFromSaved}
+                />
+
+                <Footer />
               </div>
-            </div>
-
-            <div className="bg-white/90 rounded-xl p-3 shadow-sm border border-white/50">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">
-                  {totalItemsInCart}
-                </p>
-                <p className="text-sm text-gray-600">Cart Items</p>
-              </div>
-            </div>
-
-            <div className="bg-white/90 rounded-xl p-3 shadow-sm border border-white/50">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">
-                  {savedItems.length}
-                </p>
-                <p className="text-sm text-gray-600">Saved</p>
-              </div>
-            </div>
-
-            <div className="bg-white/90 rounded-xl p-3 shadow-sm border border-white/50">
-              <div className="text-center">
-                <p className="text-lg font-bold text-orange-600">
-                  {userLoyaltyTier}
-                </p>
-                <p className="text-sm text-gray-600">Tier</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Loyalty Section */}
-          <LoyaltySection
-            userLoyaltyTier={userLoyaltyTier}
-            onTierChange={setUserLoyaltyTier}
+            }
           />
-
-          {/* Products Section - Reduced blur effects */}
-          <div className="bg-white/90 rounded-2xl p-6 shadow-lg border border-white/50">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Featured Products
-              </h2>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                Live updates
-              </div>
-            </div>
-
-            {/* Products Grid */}
-            <ProductsGrid
-              products={products}
-              isLoading={isProductsLoading}
-              loadingStates={loadingStates}
-              onAddToCart={handleAsyncAction}
-              onSaveForLater={handleAsyncAction}
-              addToCart={handleAddToCart}
-              saveForLater={handleSaveForLater}
-              savedItems={savedItems}
-              removeFromSaved={handleRemoveFromSaved}
-              userLoyaltyTier={userLoyaltyTier}
-            />
-          </div>
-        </main>
-
-        {/* Cart Sidebar */}
-        <CartSidebar
-          isOpen={isCartOpen}
-          activeTab={activeTab}
-          cartItems={cartItems}
-          savedItems={savedItems}
-          userLoyaltyTier={userLoyaltyTier}
-          loadingStates={loadingStates}
-          onClose={() => setIsCartOpen(false)}
-          onTabChange={setActiveTab}
-          onAsyncAction={handleAsyncAction}
-          removeFromCart={handleRemoveFromCart}
-          updateQuantity={handleUpdateQuantity}
-          saveForLater={handleSaveForLater}
-          moveToCart={handleMoveToCart}
-          removeFromSaved={handleRemoveFromSaved}
-        />
-        <Footer />
-      </div>
-    </ErrorBoundary>
+        </Routes>
+      </ErrorBoundary>
+    </LoyaltyProvider>
   );
 }
 

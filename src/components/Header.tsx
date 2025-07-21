@@ -1,4 +1,5 @@
 import { ShoppingCart, Sparkles } from "lucide-react";
+import { useLoyalty } from "../context/LoyaltyContext";
 
 interface HeaderProps {
   totalItemsInCart: number;
@@ -6,6 +7,8 @@ interface HeaderProps {
 }
 
 const Header = ({ totalItemsInCart, onCartToggle }: HeaderProps) => {
+  const { userLoyaltyTier } = useLoyalty(); // ✅ Moved inside component body
+
   return (
     <header className="bg-white/95 backdrop-blur-md shadow-lg border-b border-white/20 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 py-4">
@@ -21,7 +24,10 @@ const Header = ({ totalItemsInCart, onCartToggle }: HeaderProps) => {
                   Smart Shopping
                 </h1>
                 <p className="text-xs text-gray-500 hidden sm:block">
-                  Intelligent E-commerce
+                  Tier:{" "}
+                  <span className="font-medium text-gray-700">
+                    {userLoyaltyTier}
+                  </span>
                 </p>
               </div>
             </div>
@@ -35,7 +41,7 @@ const Header = ({ totalItemsInCart, onCartToggle }: HeaderProps) => {
             <ShoppingCart size={20} className="sm:w-5 sm:h-5" />
             <span className="hidden sm:inline font-medium">Cart</span>
             {totalItemsInCart > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold shadow-lg animate-">
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold shadow-lg">
                 {totalItemsInCart}
               </span>
             )}

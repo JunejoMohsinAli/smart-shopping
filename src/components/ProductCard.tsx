@@ -68,8 +68,12 @@ const ProductCard = ({
   };
 
   const handleAddToCart = async () => {
-    // Pass the selected quantity to the parent
+    if (selectedQuantity > product.stock) {
+      alert("Cannot add more than available stock!");
+      return;
+    }
     await onAddToCart(selectedQuantity);
+
     // Reset quantity after adding
     setSelectedQuantity(1);
   };
@@ -80,11 +84,11 @@ const ProductCard = ({
   };
 
   const stockStatus = getStockStatus();
-  const currentPrice = getDynamicPrice(product.basePrice);
+  const { price: currentPrice } = getDynamicPrice(product.basePrice);
   const originalPrice = product.basePrice;
   const hasDiscount = currentPrice !== originalPrice;
 
-  // Calculate loyalty tier pricing
+  // loyalty pricing
   const { price: loyaltyPrice, message: loyaltyMessage } =
     getLoyaltyDiscountWithMessage(userLoyaltyTier, currentPrice);
   const hasLoyaltyDiscount =
@@ -219,6 +223,11 @@ const ProductCard = ({
         {product.stock > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-gray-700">Quantity:</p>
+            {selectedQuantity >= product.stock && (
+              <p className="text-xs text-red-500 font-medium">
+                You've reached max stock limit
+              </p>
+            )}
             <div className="flex items-center gap-3">
               <button
                 onClick={() => handleQuantityChange(-1)}

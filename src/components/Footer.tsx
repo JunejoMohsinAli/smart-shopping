@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 const Footer = () => {
   return (
     <footer className="bg-white/80 backdrop-blur-sm border-t border-gray-200 mt-auto">
@@ -12,34 +14,34 @@ const Footer = () => {
               Intelligent shopping experience
             </p>
           </div>
+        </div>
 
-          {/* Navigation Links */}
-          <div className="flex flex-wrap justify-center gap-6 text-sm">
-            <a
-              href="#"
-              className="text-gray-600 hover:text-blue-600 transition-colors"
-            >
-              About
-            </a>
-            <a
-              href="#"
-              className="text-gray-600 hover:text-blue-600 transition-colors"
-            >
-              Support
-            </a>
-            <a
-              href="#"
-              className="text-gray-600 hover:text-blue-600 transition-colors"
-            >
-              Privacy
-            </a>
-            <a
-              href="#"
-              className="text-gray-600 hover:text-blue-600 transition-colors"
-            >
-              Terms
-            </a>
-          </div>
+        {/* Navigation Links */}
+        <div className="flex flex-wrap justify-center gap-6 text-sm">
+          <Link
+            to="/about"
+            className="text-gray-600 hover:text-blue-600 transition-colors"
+          >
+            About
+          </Link>
+          <Link
+            to="/support"
+            className="text-gray-600 hover:text-blue-600 transition-colors"
+          >
+            Support
+          </Link>
+          <Link
+            to="/privacy"
+            className="text-gray-600 hover:text-blue-600 transition-colors"
+          >
+            Privacy
+          </Link>
+          <Link
+            to="/terms"
+            className="text-gray-600 hover:text-blue-600 transition-colors"
+          >
+            Terms
+          </Link>
 
           {/* Copyright */}
           <div className="text-center md:text-right">

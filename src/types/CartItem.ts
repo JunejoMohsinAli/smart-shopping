@@ -6,4 +6,5 @@ export interface CartItem {
   image: string;
   category: string;
   tempId?: string;
+  stock: number;
 }
