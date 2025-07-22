@@ -1,1 +1,1 @@
-export type LoyaltyTier = "Bronze" | "Silver" | "Gold" | "None";
+export type LoyaltyTier = "Bronze" | "Silver" | "Gold";

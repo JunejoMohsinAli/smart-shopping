@@ -1,5 +1,6 @@
 import { ShoppingCart, Sparkles } from "lucide-react";
 import { useLoyalty } from "../context/LoyaltyContext";
+import { Link } from "react-router-dom";
 
 interface HeaderProps {
   totalItemsInCart: number;
@@ -7,31 +8,32 @@ interface HeaderProps {
 }
 
 const Header = ({ totalItemsInCart, onCartToggle }: HeaderProps) => {
-  const { userLoyaltyTier } = useLoyalty(); // ✅ Moved inside component body
+  const { userLoyaltyTier } = useLoyalty();
 
   return (
     <header className="bg-white/95 backdrop-blur-md shadow-lg border-b border-white/20 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {/* Logo */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  Smart Shopping
-                </h1>
-                <p className="text-xs text-gray-500 hidden sm:block">
-                  Tier:{" "}
-                  <span className="font-medium text-gray-700">
-                    {userLoyaltyTier}
-                  </span>
-                </p>
-              </div>
+          {/* Logo and App Name as Home Link */}
+          <Link
+            to="/"
+            className="flex items-center gap-3 hover:opacity-90 transition"
+          >
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+              <Sparkles className="w-6 h-6 text-white" />
             </div>
-          </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Smart Shopping
+              </h1>
+              <p className="text-xs text-gray-500 hidden sm:block">
+                Tier:{" "}
+                <span className="font-medium text-gray-700">
+                  {userLoyaltyTier}
+                </span>
+              </p>
+            </div>
+          </Link>
 
           {/* Cart Button */}
           <button

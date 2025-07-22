@@ -10,10 +10,12 @@ import {
 import { useState } from "react";
 import type { Product, Variant } from "../types/Product";
 import type { LoyaltyTier } from "../types/Loyalty";
+import type { CartItem } from "../types/CartItem";
 import {
   getDynamicPrice,
   isPeakHour,
   getLoyaltyDiscountWithMessage,
+  getAvailableStock,
 } from "../utils/pricing";
 
 interface ProductCardProps {
@@ -21,6 +23,7 @@ interface ProductCardProps {
   isLoading: boolean;
   isProductSaved: boolean;
   userLoyaltyTier: LoyaltyTier;
+  cartItems: CartItem[];
   onAddToCart: (quantity: number) => Promise<void>;
   onSaveForLater: (quantity: number) => Promise<void>;
 }
@@ -30,6 +33,7 @@ const ProductCard = ({
   isLoading,
   isProductSaved,
   userLoyaltyTier,
+  cartItems,
   onAddToCart,
   onSaveForLater,
 }: ProductCardProps) => {
@@ -37,15 +41,16 @@ const ProductCard = ({
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(
     product.variants.length > 0 ? product.variants[0] : null
   );
+  const availableStock = getAvailableStock(product, cartItems);
 
   const getStockStatus = () => {
-    if (product.stock === 0) {
+    if (availableStock === 0) {
       return {
         color: "text-red-600 bg-red-50",
         text: "Out of Stock",
         icon: "❌",
       };
-    } else if (product.stock <= 3) {
+    } else if (availableStock <= 3) {
       return {
         color: "text-orange-600 bg-orange-50",
         text: "Low Stock",
@@ -62,24 +67,21 @@ const ProductCard = ({
 
   const handleQuantityChange = (change: number) => {
     const newQuantity = selectedQuantity + change;
-    if (newQuantity >= 1 && newQuantity <= product.stock) {
+    if (newQuantity >= 1 && newQuantity <= availableStock) {
       setSelectedQuantity(newQuantity);
     }
   };
 
   const handleAddToCart = async () => {
-    if (selectedQuantity > product.stock) {
+    if (selectedQuantity > availableStock) {
       alert("Cannot add more than available stock!");
       return;
     }
     await onAddToCart(selectedQuantity);
-
-    // Reset quantity after adding
     setSelectedQuantity(1);
   };
 
   const handleSaveForLater = async () => {
-    // Pass the selected quantity to the parent
     await onSaveForLater(selectedQuantity);
   };
 
@@ -88,15 +90,14 @@ const ProductCard = ({
   const originalPrice = product.basePrice;
   const hasDiscount = currentPrice !== originalPrice;
 
-  // loyalty pricing
   const { price: loyaltyPrice, message: loyaltyMessage } =
     getLoyaltyDiscountWithMessage(userLoyaltyTier, currentPrice);
   const hasLoyaltyDiscount =
-    loyaltyPrice < currentPrice && userLoyaltyTier !== "None";
+    loyaltyPrice < currentPrice && userLoyaltyTier !== "Bronze";
 
   return (
     <div className="group bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-      {/* Image Container - Removed scale animation for performance */}
+      {/* Image Container */}
       <div className="relative overflow-hidden">
         <img
           src={product.image}
@@ -140,16 +141,14 @@ const ProductCard = ({
 
       {/* Content */}
       <div className="p-4 space-y-4">
-        {/* Title */}
         <h3 className="font-bold text-lg text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
           {product.name}
         </h3>
 
-        {/* Price Section - Enhanced with Loyalty Tier Pricing */}
+        {/* Price Section */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              {/* Show loyalty discounted price if applicable */}
               {hasLoyaltyDiscount ? (
                 <>
                   <div className="text-2xl font-bold text-blue-600">
@@ -192,7 +191,7 @@ const ProductCard = ({
             <span className="text-gray-600">Stock:</span>
           </div>
           <span className={`font-bold ${stockStatus.color.split(" ")[0]}`}>
-            {product.stock} units
+            {availableStock} units
           </span>
         </div>
 
@@ -220,10 +219,10 @@ const ProductCard = ({
         )}
 
         {/* Quantity Selector */}
-        {product.stock > 0 && (
+        {availableStock > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-gray-700">Quantity:</p>
-            {selectedQuantity >= product.stock && (
+            {selectedQuantity >= availableStock && (
               <p className="text-xs text-red-500 font-medium">
                 You've reached max stock limit
               </p>
@@ -241,7 +240,7 @@ const ProductCard = ({
               </span>
               <button
                 onClick={() => handleQuantityChange(1)}
-                disabled={selectedQuantity >= product.stock}
+                disabled={selectedQuantity >= availableStock}
                 className="p-1 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
@@ -253,10 +252,10 @@ const ProductCard = ({
         {/* Action Buttons */}
         <div className="flex gap-2 pt-2">
           <button
-            disabled={product.stock === 0 || isLoading}
+            disabled={availableStock === 0 || isLoading}
             onClick={handleAddToCart}
             className={`flex-1 py-3 px-4 rounded-xl font-medium transition-colors duration-200 flex items-center justify-center gap-2 ${
-              product.stock === 0 || isLoading
+              availableStock === 0 || isLoading
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                 : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl"
             }`}
@@ -264,20 +263,18 @@ const ProductCard = ({
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="hidden sm:inline">Adding...</span>
+                <span className="inline">Adding...</span>
               </>
             ) : (
               <>
                 <ShoppingCart className="w-4 h-4" />
-                <span className="hidden sm:inline">
+                <span className="inline">
                   Add {selectedQuantity > 1 ? `${selectedQuantity} ` : ""}to
                   Cart
                 </span>
               </>
             )}
           </button>
-
-          {/* Save for Later Button - Now with Star and Toggle */}
           <button
             disabled={isLoading}
             onClick={handleSaveForLater}

@@ -5,6 +5,7 @@ import About from "./pages/About";
 import Support from "./pages/Support";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
+import { useLoyalty } from "./context/LoyaltyContext";
 
 // Components
 import {
@@ -20,15 +21,13 @@ import {
 import { fakeProducts } from "./services/fakeProducts";
 import { simulateStockUpdate } from "./services/stockSimulator";
 import { useCartContext } from "./context/CartContext";
-import { LoyaltyProvider } from "./context/LoyaltyContext";
 
 // Types
 import type { Product } from "./types/Product";
-import type { LoyaltyTier } from "./types/Loyalty";
 import type { CartItem } from "./types/CartItem";
 
 function App() {
-  // ─── State & Hooks ─────────────────────────────────────────────────────────
+  // ─── State & Hooks
   const [products, setProducts] = useState<Product[]>(fakeProducts);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"cart" | "saved">("cart");
@@ -49,9 +48,7 @@ function App() {
     isLoaded,
   } = useCartContext();
 
-  const [userLoyaltyTier] = useState<LoyaltyTier>(() => {
-    return (localStorage.getItem("loyaltyTier") as LoyaltyTier) || "None";
-  });
+  const { userLoyaltyTier } = useLoyalty();
 
   const { totalItemsInCart, availableProductsCount } = useMemo(() => {
     const totalItems = cartItems.reduce((sum, i) => sum + i.quantity, 0);
@@ -144,106 +141,103 @@ function App() {
     );
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  //  Render
   return (
-    <LoyaltyProvider>
-      <ErrorBoundary>
-        <Routes>
-          <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/support" element={<Support />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route
-            path="/"
-            element={
-              <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 flex flex-col">
-                <Header
-                  totalItemsInCart={totalItemsInCart}
-                  onCartToggle={handleCartToggle}
-                />
+    <ErrorBoundary>
+      <Routes>
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/support" element={<Support />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route
+          path="/"
+          element={
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 flex flex-col">
+              <Header
+                totalItemsInCart={totalItemsInCart}
+                onCartToggle={handleCartToggle}
+              />
 
-                <main className="flex-1 max-w-7xl mx-auto px-4 py-8">
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    {[
-                      {
-                        label: "Available",
-                        value: `${availableProductsCount}/${products.length}`,
-                        color: "text-blue-600",
-                      },
-                      {
-                        label: "Cart Items",
-                        value: totalItemsInCart,
-                        color: "text-green-600",
-                      },
-                      {
-                        label: "Saved",
-                        value: savedItems.length,
-                        color: "text-purple-600",
-                      },
-                      {
-                        label: "Tier",
-                        value: userLoyaltyTier,
-                        color: "text-orange-600",
-                      },
-                    ].map((card) => (
-                      <div
-                        key={card.label}
-                        className="bg-white/90 rounded-xl p-3 shadow-sm border border-white/50 text-center"
-                      >
-                        <p className={`text-2xl font-bold ${card.color}`}>
-                          {card.value}
-                        </p>
-                        <p className="text-sm text-gray-600">{card.label}</p>
-                      </div>
-                    ))}
-                  </div>
+              <main className="flex-1 max-w-7xl mx-auto px-4 py-8">
+                {/* Stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  {[
+                    {
+                      label: "Available",
+                      value: `${availableProductsCount}/${products.length}`,
+                      color: "text-blue-600",
+                    },
+                    {
+                      label: "Cart Items",
+                      value: totalItemsInCart,
+                      color: "text-green-600",
+                    },
+                    {
+                      label: "Saved",
+                      value: savedItems.length,
+                      color: "text-purple-600",
+                    },
+                    {
+                      label: "Tier",
+                      value: userLoyaltyTier,
+                      color: "text-orange-600",
+                    },
+                  ].map((card) => (
+                    <div
+                      key={card.label}
+                      className="bg-white/90 rounded-xl p-3 shadow-sm border border-white/50 text-center"
+                    >
+                      <p className={`text-2xl font-bold ${card.color}`}>
+                        {card.value}
+                      </p>
+                      <p className="text-sm text-gray-600">{card.label}</p>
+                    </div>
+                  ))}
+                </div>
 
-                  <LoyaltySection />
+                <LoyaltySection />
 
-                  <section className="bg-white/90 rounded-2xl p-6 shadow-lg border border-white/50">
-                    <h2 className="text-2xl font-bold mb-4">
-                      Featured Products
-                    </h2>
-                    <ProductsGrid
-                      products={products}
-                      isLoading={isProductsLoading}
-                      loadingStates={loadingStates}
-                      onAddToCart={handleAsyncAction}
-                      onSaveForLater={handleAsyncAction}
-                      addToCart={handleAddToCart}
-                      saveForLater={handleSaveForLater}
-                      savedItems={savedItems}
-                      removeFromSaved={handleRemoveFromSaved}
-                      userLoyaltyTier={userLoyaltyTier}
-                    />
-                  </section>
-                </main>
+                <section className="bg-white/90 rounded-2xl p-6 shadow-lg border border-white/50">
+                  <h2 className="text-2xl font-bold mb-4">Featured Products</h2>
+                  <ProductsGrid
+                    products={products}
+                    isLoading={isProductsLoading}
+                    loadingStates={loadingStates}
+                    onAddToCart={handleAsyncAction}
+                    onSaveForLater={handleAsyncAction}
+                    addToCart={handleAddToCart}
+                    saveForLater={handleSaveForLater}
+                    savedItems={savedItems}
+                    removeFromSaved={handleRemoveFromSaved}
+                    userLoyaltyTier={userLoyaltyTier}
+                    cartItems={cartItems}
+                  />
+                </section>
+              </main>
 
-                <CartSidebar
-                  isOpen={isCartOpen}
-                  activeTab={activeTab}
-                  cartItems={cartItems}
-                  savedItems={savedItems}
-                  loadingStates={loadingStates}
-                  onClose={() => setIsCartOpen(false)}
-                  onTabChange={setActiveTab}
-                  onAsyncAction={handleAsyncAction}
-                  removeFromCart={handleRemoveFromCart}
-                  updateQuantity={handleUpdateQuantity}
-                  saveForLater={handleSaveForLater}
-                  moveToCart={handleMoveToCart}
-                  removeFromSaved={handleRemoveFromSaved}
-                />
+              <CartSidebar
+                isOpen={isCartOpen}
+                activeTab={activeTab}
+                cartItems={cartItems}
+                savedItems={savedItems}
+                loadingStates={loadingStates}
+                onClose={() => setIsCartOpen(false)}
+                onTabChange={setActiveTab}
+                onAsyncAction={handleAsyncAction}
+                removeFromCart={handleRemoveFromCart}
+                updateQuantity={handleUpdateQuantity}
+                saveForLater={handleSaveForLater}
+                moveToCart={handleMoveToCart}
+                removeFromSaved={handleRemoveFromSaved}
+              />
 
-                <Footer />
-              </div>
-            }
-          />
-        </Routes>
-      </ErrorBoundary>
-    </LoyaltyProvider>
+              <Footer />
+            </div>
+          }
+        />
+      </Routes>
+    </ErrorBoundary>
   );
 }
 

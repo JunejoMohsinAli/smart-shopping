@@ -20,6 +20,7 @@ interface ProductsGridProps {
   savedItems: CartItem[];
   removeFromSaved: (productId: number) => Promise<void>;
   userLoyaltyTier: LoyaltyTier;
+  cartItems: CartItem[]; // <-- ADD THIS PROP to props
 }
 
 const ProductsGrid = ({
@@ -33,14 +34,14 @@ const ProductsGrid = ({
   savedItems,
   removeFromSaved,
   userLoyaltyTier,
+  cartItems,
 }: ProductsGridProps) => {
-  // Fix: Direct calls with quantity parameter
   const handleAddToCart = async (product: Product, quantity: number = 1) => {
     const cartItem: CartItem = {
       productId: product.id,
       name: product.name,
       basePrice: product.basePrice,
-      quantity: quantity, // Use the actual selected quantity
+      quantity: quantity,
       image: product.image,
       category: product.category,
       stock: product.stock,
@@ -54,7 +55,7 @@ const ProductsGrid = ({
       productId: product.id,
       name: product.name,
       basePrice: product.basePrice,
-      quantity: quantity, // Use the actual selected quantity
+      quantity: quantity,
       image: product.image,
       category: product.category,
       stock: product.stock,
@@ -122,6 +123,7 @@ const ProductsGrid = ({
                 isLoading={loadingStates[product.id] || false}
                 isProductSaved={isProductSaved}
                 userLoyaltyTier={userLoyaltyTier}
+                cartItems={cartItems} // <-- PASS THIS
                 onAddToCart={(quantity) => handleAddToCart(product, quantity)}
                 onSaveForLater={(quantity) =>
                   handleSaveForLater(product, quantity)

@@ -1,5 +1,6 @@
 import type { LoyaltyTier } from "../types/Loyalty";
 import type { CartItem } from "../types/CartItem";
+import type { Product } from "../types/Product"; // <-- ADD
 
 export function getLoyaltyDiscountWithMessage(
   tier: LoyaltyTier,
@@ -118,4 +119,11 @@ export function applyCategoryPromotion(cartItems: CartItem[]): {
   return {
     promotionDiscount: 0,
   };
+}
+
+// --- ADD THIS FUNCTION at the END ---
+export function getAvailableStock(product: Product, cartItems: CartItem[]): number {
+  const cartItem = cartItems.find(item => item.productId === product.id);
+  const inCart = cartItem ? cartItem.quantity : 0;
+  return Math.max(0, product.stock - inCart);
 }
