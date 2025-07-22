@@ -1,11 +1,11 @@
 import {
-  Star,
   Loader2,
   ShoppingCart,
   Zap,
   Package,
   Plus,
   Minus,
+  Heart,
 } from "lucide-react";
 import { useState } from "react";
 import type { Product, Variant } from "../types/Product";
@@ -86,6 +86,8 @@ const ProductCard = ({
   };
 
   const stockStatus = getStockStatus();
+  const colorClass =
+    stockStatus && stockStatus.color ? stockStatus.color.split(" ")[0] : "";
   const { price: currentPrice } = getDynamicPrice(product.basePrice);
   const originalPrice = product.basePrice;
   const hasDiscount = currentPrice !== originalPrice;
@@ -132,7 +134,7 @@ const ProductCard = ({
         {isProductSaved && (
           <div className="absolute top-12 right-3">
             <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-medium shadow-lg flex items-center gap-1">
-              <Star className="w-3 h-3 fill-current" />
+              <Heart className="w-3 h-3 fill-current" />
               Saved
             </span>
           </div>
@@ -190,8 +192,8 @@ const ProductCard = ({
             <Package className="w-4 h-4 text-gray-500" />
             <span className="text-gray-600">Stock:</span>
           </div>
-          <span className={`font-bold ${stockStatus.color.split(" ")[0]}`}>
-            {availableStock} units
+          <span className={`font-bold ${colorClass}`}>
+            {typeof availableStock === "number" ? availableStock : 0} units
           </span>
         </div>
 
@@ -285,12 +287,12 @@ const ProductCard = ({
                 ? "text-yellow-600 bg-yellow-50 hover:bg-yellow-100 shadow-lg"
                 : "text-gray-600 hover:text-yellow-500 hover:bg-yellow-50 bg-gray-100 hover:shadow-lg"
             }`}
-            title={isProductSaved ? "Remove from Saved" : "Save for Later"}
+            title={isProductSaved ? "Saved" : "Save for Later"}
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Star
+              <Heart
                 className={`w-4 h-4 ${isProductSaved ? "fill-current" : ""}`}
               />
             )}

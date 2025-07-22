@@ -42,7 +42,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Improved API simulation - reduce failure rate to 3%
   const simulateApiCall = useCallback(async () => {
-    const fail = Math.random() < 0.03; // Reduced from 10% to 3%
+    const fail = Math.random() < 0.03;
     await new Promise((res) => setTimeout(res, Math.random() * 400 + 100));
     if (fail) {
       const error = new Error("Network request failed");
@@ -97,20 +97,19 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
             );
             break;
 
-          case "SAVE_FOR_LATER":
+          case "SAVE_FOR_LATER": {
             const itemToSave = operation.payload;
-            updateCartItemsSafely((prev) =>
-              prev.filter((i) => i.productId !== operation.productId)
-            );
             updateSavedItemsSafely((prev) => {
               const exists = prev.find(
                 (i) => i.productId === operation.productId
               );
               return exists
                 ? prev
-                : [...prev, { ...itemToSave, quantity: itemToSave.quantity }]; // Preserve quantity
+                : [...prev, { ...itemToSave, quantity: itemToSave.quantity }];
             });
+            // *** NOTE: DO NOT REMOVE FROM CART ***
             break;
+          }
 
           case "MOVE_TO_CART":
             const savedItem = savedItems.find(
@@ -127,7 +126,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
                 return exists
                   ? prev.map((i) =>
                       i.productId === operation.productId
-                        ? { ...i, quantity: i.quantity + savedItem.quantity } // Preserve quantity
+                        ? { ...i, quantity: i.quantity + savedItem.quantity }
                         : i
                     )
                   : [...prev, savedItem];
@@ -219,9 +218,8 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         safeLocalStorage.setItem(SAVED_KEY, JSON.stringify(savedItems));
       } catch (error) {
         console.error("Save error:", error);
-        // Error already handled in safeLocalStorage.setItem
       }
-    }, 500); // Increased debounce to reduce frequency
+    }, 500);
 
     return () => clearTimeout(timeoutId);
   }, [cartItems, savedItems, isLoaded, safeLocalStorage]);
@@ -293,6 +291,8 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     [cartItems, removeFromCart, updateCartItemsSafely]
   );
 
+  // *** THIS IS THE ONLY REAL CHANGE ***
+  // saveForLater: just add to savedItems, do NOT remove from cart!
   const saveForLater = useCallback(
     async (item: CartItem) => {
       if (raceManager.current.isProductLocked(item.productId)) {
@@ -302,18 +302,16 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       raceManager.current.enqueueOperation({
         type: "SAVE_FOR_LATER",
         productId: item.productId,
-        payload: item, // Preserve full item including quantity
+        payload: item,
       });
 
-      updateCartItemsSafely((prev) =>
-        prev.filter((i) => i.productId !== item.productId)
-      );
       updateSavedItemsSafely((prev) => {
         const exists = prev.find((i) => i.productId === item.productId);
         return exists ? prev : [...prev, item];
       });
+      // *** Don't remove from cart ***
     },
-    [updateCartItemsSafely, updateSavedItemsSafely]
+    [updateSavedItemsSafely]
   );
 
   const moveToCart = useCallback(
